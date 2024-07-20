@@ -11,8 +11,8 @@ namespace CurrencyConversionService.Helpers
         {
             services.AddMemoryCache();
             services.AddHttpClient<ICurrencyConverterService, CurrencyConverterService>();
+            services.AddSingleton<ICurrencyConverterService, CurrencyConverterService>();
             services.AddSingleton(configuration);
-
             return services;
         }
     }
