@@ -1,0 +1,72 @@
+# Ignore Visual Studio temporary files, build results, and
+# build directories
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Ll]og[Cc]hannels/
+.vscode/
+
+# Ignore Visual Studio Code temporary files, build results, and
+# user-specific files
+.vscode/
+.vscode/*
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Mono Auto Generated Files
+mono_crash.*
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+
+# Folder config file
+Desktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# VS Code directories
+.vscode/
+.vscode/*
+
+# Windows Installer files
+*.cab
+*.msi
+*.msm
+*.msp
+
+# Windows shortcuts
+*.lnk
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# Rider local workspace file
+*.sln.iws
+
+# Rider .idea folder
+.idea/
+
+# Rider project files
+*.iws
+.idea/
+.idea/*
+
+# Rider artifact folders
+/out/
+/.vs
