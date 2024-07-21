@@ -31,7 +31,6 @@ namespace CurrencyConversionService.Services
         {
             try
             {
-                // Ensure we are using cached rates if available
                 var rates = await GetRatesAsync();
                 if (rates.TryGetValue(fromCurrency, out decimal fromRate) && rates.TryGetValue(toCurrency, out decimal toRate))
                 {

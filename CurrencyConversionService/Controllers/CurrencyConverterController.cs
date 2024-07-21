@@ -1,7 +1,11 @@
 ﻿using CurrencyConversionService.Interfaces;
+using CurrencyConversionService.Models.Dto.In;
+using CurrencyConversionService.Models.Dto.Out;
 using CurrencyConversionService.Models.Enums;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace CurrencyConversionService.Controllers
@@ -18,32 +22,41 @@ namespace CurrencyConversionService.Controllers
         }
 
         /// <summary>
-        /// Converts an amount from one currency to another.
+        /// Converts currencies from one to another.
         /// </summary>
-        /// <param name="fromCurrency">The currency code to convert from (e.g., USD, EUR).</param>
-        /// <param name="toCurrency">The currency code to convert to (e.g., USD, EUR).</param>
-        /// <param name="amount">The amount of money to convert.</param>
-        /// <returns>The converted amount.</returns>
-        /// <response code="200">Returns the converted amount.</response>
+        /// <param name="conversionRequests">List of conversion requests.</param>
+        /// <returns>List of conversion results.</returns>
+        /// <response code="200">Returns the list of converted amounts.</response>
         /// <response code="400">If any currency code is invalid.</response>
-        [HttpGet("convert")]
-        public async Task<IActionResult> Convert(
-            [FromQuery] string fromCurrency,
-            [FromQuery] string toCurrency,
-            [FromQuery] decimal amount)
+        [HttpPost("convert")]
+        public async Task<IActionResult> BulkConvert([FromBody] List<ConversionIn> conversionRequests)
         {
-            if (!Enum.TryParse<Currency>(fromCurrency, true, out var _))
+            var invalidCurrencies = conversionRequests
+                .SelectMany(r => new[] { r.FromCurrency, r.ToCurrency })
+                .Distinct()
+                .Where(c => !Enum.TryParse<Currency>(c, true, out var _))
+                .ToList();
+
+            if (invalidCurrencies.Any())
             {
-                return BadRequest($"Invalid fromCurrency: {fromCurrency}. Please use one of the following: {string.Join(", ", Enum.GetNames(typeof(Currency)))}");
+                return BadRequest($"Invalid currencies: {string.Join(", ", invalidCurrencies)}. Please use valid currency codes.");
             }
 
-            if (!Enum.TryParse<Currency>(toCurrency, true, out var _))
+            var results = new List<ConversionOut>();
+
+            foreach (var request in conversionRequests)
             {
-                return BadRequest($"Invalid toCurrency: {toCurrency}. Please use one of the following: {string.Join(", ", Enum.GetNames(typeof(Currency)))}");
+                var convertedAmount = await _currencyConverterService.ConvertAsync(request.FromCurrency, request.ToCurrency, request.Amount);
+                results.Add(new ConversionOut
+                {
+                    FromCurrency = request.FromCurrency,
+                    ToCurrency = request.ToCurrency,
+                    Amount = request.Amount,
+                    ConvertedAmount = convertedAmount
+                });
             }
 
-            var result = await _currencyConverterService.ConvertAsync(fromCurrency, toCurrency, amount);
-            return Ok(result.ToString("F2"));
+            return Ok(results);
         }
 
         /// <summary>

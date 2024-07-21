@@ -1,14 +1,22 @@
-﻿using CurrencyConversionService.Helpers;
+﻿using CurrencyConversionService.Controllers;
+using CurrencyConversionService.Helpers;
+using CurrencyConversionService.Interfaces;
+using CurrencyConversionService.Models.Dto.In;
+using CurrencyConversionService.Models.Dto.Out;
 using CurrencyConversionService.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using RichardSzalay.MockHttp;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Threading.Tasks;
+using Xunit;
 
 namespace CurrencyConversionService.Tests.UnitTests
 {
-
     public class CurrencyConverterServiceTests
     {
         private readonly IMemoryCache _cache;
@@ -36,10 +44,10 @@ namespace CurrencyConversionService.Tests.UnitTests
             var toCurrency = "EUR";
             var amount = 100m;
             var rates = new Dictionary<string, decimal>
-        {
-            { "USD", 1.2m },
-            { "EUR", 1m }
-        };
+            {
+                { "USD", 1.2m },
+                { "EUR", 1m }
+            };
             _cache.Set("Rates", rates, TimeSpan.FromHours(24));
 
             // Act
@@ -64,7 +72,7 @@ namespace CurrencyConversionService.Tests.UnitTests
                     <Cube currency='EUR' rate='1'/>
                 </Cube>
             </Cube>
-        </gesmes:Envelope>";
+            </gesmes:Envelope>";
 
             _httpMessageHandler.When("http://example.com").Respond("application/xml", xmlResponse);
             _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
@@ -81,10 +89,10 @@ namespace CurrencyConversionService.Tests.UnitTests
         {
             // Arrange
             var rates = new Dictionary<string, decimal>
-        {
-            { "USD", 1.2m },
-            { "EUR", 1m }
-        };
+            {
+                { "USD", 1.2m },
+                { "EUR", 1m }
+            };
             _cache.Set("Rates", rates, TimeSpan.FromHours(24));
 
             // Act
@@ -105,7 +113,7 @@ namespace CurrencyConversionService.Tests.UnitTests
                     <Cube currency='EUR' rate='1'/>
                 </Cube>
             </Cube>
-        </gesmes:Envelope>";
+            </gesmes:Envelope>";
 
             _httpMessageHandler.When("http://example.com").Respond("application/xml", xmlResponse);
             _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
@@ -141,10 +149,10 @@ namespace CurrencyConversionService.Tests.UnitTests
             var toCurrency = "EUR";
             var amount = 100m;
             var rates = new Dictionary<string, decimal>
-        {
-            { "USD", 1.2m },
-            { "EUR", 1m }
-        };
+            {
+                { "USD", 1.2m },
+                { "EUR", 1m }
+            };
             _cache.Set("Rates", rates, TimeSpan.FromHours(24));
 
             // Act & Assert
@@ -179,10 +187,10 @@ namespace CurrencyConversionService.Tests.UnitTests
         {
             // Arrange
             var initialRates = new Dictionary<string, decimal>
-        {
-            { "USD", 1.2m },
-            { "EUR", 1m }
-        };
+            {
+                { "USD", 1.2m },
+                { "EUR", 1m }
+            };
             _cache.Set("Rates", initialRates, TimeSpan.FromSeconds(1));
 
             var xmlResponse = @"<gesmes:Envelope xmlns:gesmes='http://www.gesmes.org/xml/2002-08-01' xmlns='http://www.ecb.int/vocabulary/2002-08-01/eurofxref'>
@@ -192,7 +200,7 @@ namespace CurrencyConversionService.Tests.UnitTests
                     <Cube currency='EUR' rate='1'/>
                 </Cube>
             </Cube>
-        </gesmes:Envelope>";
+            </gesmes:Envelope>";
 
             _httpMessageHandler.When("http://example.com").Respond("application/xml", xmlResponse);
             _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
@@ -208,5 +216,4 @@ namespace CurrencyConversionService.Tests.UnitTests
             Assert.Equal(1m, result["EUR"]);
         }
     }
-
 }
