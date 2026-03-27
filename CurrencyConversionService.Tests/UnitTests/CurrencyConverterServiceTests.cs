@@ -1,71 +1,62 @@
-﻿using CurrencyConversionService.Controllers;
-using CurrencyConversionService.Helpers;
-using CurrencyConversionService.Interfaces;
-using CurrencyConversionService.Models.Dto.In;
-using CurrencyConversionService.Models.Dto.Out;
+﻿using CurrencyConversionService.Helpers;
 using CurrencyConversionService.Services;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using RichardSzalay.MockHttp;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Threading.Tasks;
-using Xunit;
 
-namespace CurrencyConversionService.Tests.UnitTests
+namespace CurrencyConversionService.Tests.UnitTests;
+
+public class CurrencyConverterServiceTests
 {
-    public class CurrencyConverterServiceTests
+    private readonly IMemoryCache _cache;
+    private readonly MockHttpMessageHandler _httpMessageHandler;
+    private readonly HttpClient _httpClient;
+    private readonly Mock<IConfiguration> _configurationMock;
+    private readonly Mock<ILogger<CurrencyConverterService>> _loggerMock;
+    private readonly CurrencyConverterService _service;
+
+    public CurrencyConverterServiceTests()
     {
-        private readonly IMemoryCache _cache;
-        private readonly MockHttpMessageHandler _httpMessageHandler;
-        private readonly HttpClient _httpClient;
-        private readonly Mock<IConfiguration> _configurationMock;
-        private readonly Mock<ILogger<CurrencyConverterService>> _loggerMock;
-        private readonly CurrencyConverterService _service;
+        _cache = new MemoryCache(new MemoryCacheOptions());
+        _httpMessageHandler = new MockHttpMessageHandler();
+        _httpClient = new HttpClient(_httpMessageHandler);
+        _configurationMock = new Mock<IConfiguration>();
+        _loggerMock = new Mock<ILogger<CurrencyConverterService>>();
+        _service = new CurrencyConverterService(_cache, _httpClient, _configurationMock.Object, _loggerMock.Object);
+    }
 
-        public CurrencyConverterServiceTests()
+    [Fact]
+    public async Task ConvertAsync_Success()
+    {
+        // Arrange
+        string fromCurrency = "USD";
+        string toCurrency = "EUR";
+        decimal amount = 100m;
+        Dictionary<string, decimal> rates = new()
         {
-            _cache = new MemoryCache(new MemoryCacheOptions());
-            _httpMessageHandler = new MockHttpMessageHandler();
-            _httpClient = new HttpClient(_httpMessageHandler);
-            _configurationMock = new Mock<IConfiguration>();
-            _loggerMock = new Mock<ILogger<CurrencyConverterService>>();
-            _service = new CurrencyConverterService(_cache, _httpClient, _configurationMock.Object, _loggerMock.Object);
-        }
+            { "USD", 1.2m },
+            { "EUR", 1m }
+        };
+        _ = _cache.Set("Rates", rates, TimeSpan.FromHours(24));
 
-        [Fact]
-        public async Task ConvertAsync_Success()
-        {
-            // Arrange
-            var fromCurrency = "USD";
-            var toCurrency = "EUR";
-            var amount = 100m;
-            var rates = new Dictionary<string, decimal>
-            {
-                { "USD", 1.2m },
-                { "EUR", 1m }
-            };
-            _cache.Set("Rates", rates, TimeSpan.FromHours(24));
+        // Act
+        decimal result = await _service.ConvertAsync(fromCurrency, toCurrency, amount);
 
-            // Act
-            var result = await _service.ConvertAsync(fromCurrency, toCurrency, amount);
+        // Assert
+        Assert.Equal(83.33m, result, 2);
+    }
 
-            // Assert
-            Assert.Equal(83.33m, result, 2);
-        }
+    [Fact]
+    public async Task ConvertAsync_CacheFallback()
+    {
+        // Arrange
+        string fromCurrency = "USD";
+        string toCurrency = "EUR";
+        decimal amount = 100m;
 
-        [Fact]
-        public async Task ConvertAsync_CacheFallback()
-        {
-            // Arrange
-            var fromCurrency = "USD";
-            var toCurrency = "EUR";
-            var amount = 100m;
-
-            var xmlResponse = @"<gesmes:Envelope xmlns:gesmes='http://www.gesmes.org/xml/2002-08-01' xmlns='http://www.ecb.int/vocabulary/2002-08-01/eurofxref'>
+        string xmlResponse = @"<gesmes:Envelope xmlns:gesmes='http://www.gesmes.org/xml/2002-08-01' xmlns='http://www.ecb.int/vocabulary/2002-08-01/eurofxref'>
             <Cube>
                 <Cube time='2023-07-20'>
                     <Cube currency='USD' rate='1.2'/>
@@ -74,39 +65,39 @@ namespace CurrencyConversionService.Tests.UnitTests
             </Cube>
             </gesmes:Envelope>";
 
-            _httpMessageHandler.When("http://example.com").Respond("application/xml", xmlResponse);
-            _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
+        _ = _httpMessageHandler.When("http://example.com").Respond("application/xml", xmlResponse);
+        _ = _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
 
-            // Act
-            var result = await _service.ConvertAsync(fromCurrency, toCurrency, amount);
+        // Act
+        decimal result = await _service.ConvertAsync(fromCurrency, toCurrency, amount);
 
-            // Assert
-            Assert.Equal(83.33m, result, 2);
-        }
+        // Assert
+        Assert.Equal(83.33m, result, 2);
+    }
 
-        [Fact]
-        public async Task GetRatesAsync_UsesCache()
+    [Fact]
+    public async Task GetRatesAsync_UsesCache()
+    {
+        // Arrange
+        Dictionary<string, decimal> rates = new()
         {
-            // Arrange
-            var rates = new Dictionary<string, decimal>
-            {
-                { "USD", 1.2m },
-                { "EUR", 1m }
-            };
-            _cache.Set("Rates", rates, TimeSpan.FromHours(24));
+            { "USD", 1.2m },
+            { "EUR", 1m }
+        };
+        _ = _cache.Set("Rates", rates, TimeSpan.FromHours(24));
 
-            // Act
-            var result = await _service.GetRatesAsync();
+        // Act
+        Dictionary<string, decimal> result = await _service.GetRatesAsync();
 
-            // Assert
-            Assert.Equal(rates, result);
-        }
+        // Assert
+        Assert.Equal(rates, result);
+    }
 
-        [Fact]
-        public async Task GetRatesAsync_ForceUpdate()
-        {
-            // Arrange
-            var xmlResponse = @"<gesmes:Envelope xmlns:gesmes='http://www.gesmes.org/xml/2002-08-01' xmlns='http://www.ecb.int/vocabulary/2002-08-01/eurofxref'>
+    [Fact]
+    public async Task GetRatesAsync_ForceUpdate()
+    {
+        // Arrange
+        string xmlResponse = @"<gesmes:Envelope xmlns:gesmes='http://www.gesmes.org/xml/2002-08-01' xmlns='http://www.ecb.int/vocabulary/2002-08-01/eurofxref'>
             <Cube>
                 <Cube time='2023-07-20'>
                     <Cube currency='USD' rate='1.2'/>
@@ -115,85 +106,85 @@ namespace CurrencyConversionService.Tests.UnitTests
             </Cube>
             </gesmes:Envelope>";
 
-            _httpMessageHandler.When("http://example.com").Respond("application/xml", xmlResponse);
-            _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
+        _ = _httpMessageHandler.When("http://example.com").Respond("application/xml", xmlResponse);
+        _ = _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
 
-            // Act
-            var result = await _service.GetRatesAsync(true);
+        // Act
+        Dictionary<string, decimal> result = await _service.GetRatesAsync(true);
 
-            // Assert
-            Assert.Equal(1.2m, result["USD"]);
-            Assert.Equal(1m, result["EUR"]);
-        }
+        // Assert
+        Assert.Equal(1.2m, result["USD"]);
+        Assert.Equal(1m, result["EUR"]);
+    }
 
-        [Fact]
-        public async Task ConvertAsync_ThrowsException_WhenRatesUnavailable()
+    [Fact]
+    public async Task ConvertAsync_ThrowsException_WhenRatesUnavailable()
+    {
+        // Arrange
+        string fromCurrency = "USD";
+        string toCurrency = "EUR";
+        decimal amount = 100m;
+
+        _ = _httpMessageHandler.When("http://example.com").Throw(new HttpRequestException());
+        _ = _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
+
+        // Act & Assert
+        _ = await Assert.ThrowsAsync<CurrencyConversionException>(() => _service.ConvertAsync(fromCurrency, toCurrency, amount));
+    }
+
+    [Fact]
+    public async Task ConvertAsync_ThrowsException_ForInvalidCurrency()
+    {
+        // Arrange
+        string fromCurrency = "INVALID";
+        string toCurrency = "EUR";
+        decimal amount = 100m;
+        Dictionary<string, decimal> rates = new()
         {
-            // Arrange
-            var fromCurrency = "USD";
-            var toCurrency = "EUR";
-            var amount = 100m;
+            { "USD", 1.2m },
+            { "EUR", 1m }
+        };
+        _ = _cache.Set("Rates", rates, TimeSpan.FromHours(24));
 
-            _httpMessageHandler.When("http://example.com").Throw(new HttpRequestException());
-            _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
+        // Act & Assert
+        _ = await Assert.ThrowsAsync<CurrencyConversionException>(() => _service.ConvertAsync(fromCurrency, toCurrency, amount));
+    }
 
-            // Act & Assert
-            await Assert.ThrowsAsync<CurrencyConversionException>(() => _service.ConvertAsync(fromCurrency, toCurrency, amount));
-        }
+    [Fact]
+    public async Task GetRatesAsync_ThrowsException_ForInvalidXmlResponse()
+    {
+        // Arrange
+        string invalidXmlResponse = "<invalid>";
+        _ = _httpMessageHandler.When("http://example.com").Respond("application/xml", invalidXmlResponse);
+        _ = _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
 
-        [Fact]
-        public async Task ConvertAsync_ThrowsException_ForInvalidCurrency()
+        // Act & Assert
+        _ = await Assert.ThrowsAsync<CurrencyConversionException>(() => _service.GetRatesAsync(true));
+    }
+
+    [Fact]
+    public async Task GetRatesAsync_ThrowsException_WhenCacheAndServiceFail()
+    {
+        // Arrange
+        _ = _httpMessageHandler.When("http://example.com").Throw(new HttpRequestException());
+        _ = _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
+
+        // Act & Assert
+        _ = await Assert.ThrowsAsync<CurrencyConversionException>(() => _service.GetRatesAsync());
+    }
+
+    [Fact]
+    public async Task GetRatesAsync_CacheExpiry()
+    {
+        // Arrange
+        Dictionary<string, decimal> initialRates = new()
         {
-            // Arrange
-            var fromCurrency = "INVALID";
-            var toCurrency = "EUR";
-            var amount = 100m;
-            var rates = new Dictionary<string, decimal>
-            {
-                { "USD", 1.2m },
-                { "EUR", 1m }
-            };
-            _cache.Set("Rates", rates, TimeSpan.FromHours(24));
+            { "USD", 1.2m },
+            { "EUR", 1m }
+        };
+        _ = _cache.Set("Rates", initialRates, TimeSpan.FromSeconds(1));
 
-            // Act & Assert
-            await Assert.ThrowsAsync<CurrencyConversionException>(() => _service.ConvertAsync(fromCurrency, toCurrency, amount));
-        }
-
-        [Fact]
-        public async Task GetRatesAsync_ThrowsException_ForInvalidXmlResponse()
-        {
-            // Arrange
-            var invalidXmlResponse = "<invalid>";
-            _httpMessageHandler.When("http://example.com").Respond("application/xml", invalidXmlResponse);
-            _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
-
-            // Act & Assert
-            await Assert.ThrowsAsync<CurrencyConversionException>(() => _service.GetRatesAsync(true));
-        }
-
-        [Fact]
-        public async Task GetRatesAsync_ThrowsException_WhenCacheAndServiceFail()
-        {
-            // Arrange
-            _httpMessageHandler.When("http://example.com").Throw(new HttpRequestException());
-            _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
-
-            // Act & Assert
-            await Assert.ThrowsAsync<CurrencyConversionException>(() => _service.GetRatesAsync());
-        }
-
-        [Fact]
-        public async Task GetRatesAsync_CacheExpiry()
-        {
-            // Arrange
-            var initialRates = new Dictionary<string, decimal>
-            {
-                { "USD", 1.2m },
-                { "EUR", 1m }
-            };
-            _cache.Set("Rates", initialRates, TimeSpan.FromSeconds(1));
-
-            var xmlResponse = @"<gesmes:Envelope xmlns:gesmes='http://www.gesmes.org/xml/2002-08-01' xmlns='http://www.ecb.int/vocabulary/2002-08-01/eurofxref'>
+        string xmlResponse = @"<gesmes:Envelope xmlns:gesmes='http://www.gesmes.org/xml/2002-08-01' xmlns='http://www.ecb.int/vocabulary/2002-08-01/eurofxref'>
             <Cube>
                 <Cube time='2023-07-20'>
                     <Cube currency='USD' rate='1.3'/>
@@ -202,18 +193,17 @@ namespace CurrencyConversionService.Tests.UnitTests
             </Cube>
             </gesmes:Envelope>";
 
-            _httpMessageHandler.When("http://example.com").Respond("application/xml", xmlResponse);
-            _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
+        _ = _httpMessageHandler.When("http://example.com").Respond("application/xml", xmlResponse);
+        _ = _configurationMock.Setup(c => c["CurrencyConverter:EcbRatesUrl"]).Returns("http://example.com");
 
-            // Wait for the cache to expire
-            await Task.Delay(1500);
+        // Wait for the cache to expire
+        await Task.Delay(1500);
 
-            // Act
-            var result = await _service.GetRatesAsync();
+        // Act
+        Dictionary<string, decimal> result = await _service.GetRatesAsync();
 
-            // Assert
-            Assert.Equal(1.3m, result["USD"]);
-            Assert.Equal(1m, result["EUR"]);
-        }
+        // Assert
+        Assert.Equal(1.3m, result["USD"]);
+        Assert.Equal(1m, result["EUR"]);
     }
 }

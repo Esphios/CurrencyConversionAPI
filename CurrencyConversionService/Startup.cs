@@ -5,62 +5,56 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using System;
 using System.IO;
 using System.Reflection;
 
-namespace CurrencyConversionService
+namespace CurrencyConversionService;
+
+public class Startup(IConfiguration configuration)
 {
-    public class Startup
+    public IConfiguration Configuration { get; } = configuration;
+
+    public void ConfigureServices(IServiceCollection services)
     {
-        public Startup(IConfiguration configuration)
+        _ = services.AddMemoryCache();
+        _ = services.AddHttpClient<ICurrencyConverterService, CurrencyConverterService>();
+        _ = services.AddSingleton(Configuration);
+        _ = services.AddControllers()
+            .AddNewtonsoftJson(options =>
+            {
+                options.SerializerSettings.Converters.Add(new Newtonsoft.Json.Converters.StringEnumConverter());
+            });
+        _ = services.AddSwaggerGen(c =>
         {
-            Configuration = configuration;
+            c.SwaggerDoc("v1", new OpenApiInfo { Title = "Currency Conversion API", Version = "v1" });
+
+            // Include XML comments
+            string xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            string xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+            c.IncludeXmlComments(xmlPath);
+        });
+    }
+
+    public static void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+    {
+        if (env.IsDevelopment())
+        {
+            _ = app.UseDeveloperExceptionPage();
         }
 
-        public IConfiguration Configuration { get; }
-
-        public void ConfigureServices(IServiceCollection services)
+        _ = app.UseSwagger();
+        _ = app.UseSwaggerUI(c =>
         {
-            services.AddMemoryCache();
-            services.AddHttpClient<ICurrencyConverterService, CurrencyConverterService>();
-            services.AddSingleton(Configuration);
-            services.AddControllers()
-                .AddNewtonsoftJson(options =>
-                {
-                    options.SerializerSettings.Converters.Add(new Newtonsoft.Json.Converters.StringEnumConverter());
-                });
-            services.AddSwaggerGen(c =>
-            {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "Currency Conversion API", Version = "v1" });
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "v1");
+            c.RoutePrefix = string.Empty;
+        });
 
-                // Include XML comments
-                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-                c.IncludeXmlComments(xmlPath);
-            });
-        }
-
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        _ = app.UseRouting();
+        _ = app.UseEndpoints(endpoints =>
         {
-            if (env.IsDevelopment())
-            {
-                app.UseDeveloperExceptionPage();
-            }
-
-            app.UseSwagger();
-            app.UseSwaggerUI(c =>
-            {
-                c.SwaggerEndpoint("/swagger/v1/swagger.json", "v1");
-                c.RoutePrefix = string.Empty;
-            });
-
-            app.UseRouting();
-            app.UseEndpoints(endpoints =>
-            {
-                endpoints.MapControllers();
-            });
-        }
+            _ = endpoints.MapControllers();
+        });
     }
 }
