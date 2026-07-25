@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using RichardSzalay.MockHttp;
+using System.Globalization;
 
 namespace CurrencyConversionService.Tests.UnitTests;
 
@@ -206,4 +207,26 @@ public class CurrencyConverterServiceTests
         Assert.Equal(1.3m, result["USD"]);
         Assert.Equal(1m, result["EUR"]);
     }
+    [Theory]
+    [InlineData("en-US")]
+    [InlineData("pt-BR")]
+    public void ParseRates_UsesInvariantDecimalSeparator(string cultureName)
+    {
+        CultureInfo previousCulture = CultureInfo.CurrentCulture;
+
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo(cultureName);
+            const string xml = @"<Envelope><Cube currency='USD' rate='1.2' /></Envelope>";
+
+            Dictionary<string, decimal> rates = CurrencyConverterService.ParseRates(xml);
+
+            Assert.Equal(1.2m, rates["USD"]);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+        }
+    }
+
 }

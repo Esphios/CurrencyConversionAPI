@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -72,7 +73,7 @@ public class CurrencyConverterService(
                         .Where(x => x.Attribute("currency") != null)
                         .ToDictionary(
                             x => x.Attribute("currency")!.Value,
-                            x => decimal.Parse(x.Attribute("rate")!.Value.Replace(".", ",")));
+                            x => decimal.Parse(x.Attribute("rate")!.Value, CultureInfo.InvariantCulture));
 
         rates["EUR"] = 1m; // ECB rates are relative to EUR
         return rates;
