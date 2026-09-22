@@ -2,6 +2,7 @@
 using CurrencyConversionService.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -19,6 +20,7 @@ public class Startup(IConfiguration configuration)
     public void ConfigureServices(IServiceCollection services)
     {
         _ = services.AddMemoryCache();
+        _ = services.AddHealthChecks();
         _ = services.AddHttpClient<ICurrencyConverterService, CurrencyConverterService>();
         _ = services.AddSingleton(Configuration);
         _ = services.AddControllers()
@@ -54,6 +56,10 @@ public class Startup(IConfiguration configuration)
         _ = app.UseRouting();
         _ = app.UseEndpoints(endpoints =>
         {
+            _ = endpoints.MapHealthChecks("/health", new HealthCheckOptions
+            {
+                AllowCachingResponses = false
+            });
             _ = endpoints.MapControllers();
         });
     }

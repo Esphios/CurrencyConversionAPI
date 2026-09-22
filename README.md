@@ -78,6 +78,52 @@ dotnet run --project CurrencyConversionService
 
 The ECB URL is configured at `CurrencyConverter:EcbRatesUrl` in `appsettings.json`.
 
+## Running with Docker
+
+Requirements:
+
+- Docker Engine with Docker Compose
+- Internet access to download container images and reach the ECB feed
+
+Build and start the API:
+
+```bash
+docker compose up --build --detach
+```
+
+Once the container is healthy, open:
+
+- Swagger UI: <http://localhost:8080/>
+- Health check: <http://localhost:8080/health>
+
+Inspect status and logs:
+
+```bash
+docker compose ps
+docker compose logs --follow api
+```
+
+Stop the API:
+
+```bash
+docker compose down
+```
+
+The workflow stores no persistent container data. Exchange rates remain in the
+process-local memory cache and are lost whenever the container is recreated or
+restarted.
+
+Copy `.env.example` to `.env` to customize the host port or ECB endpoint:
+
+```dotenv
+CURRENCY_API_PORT=8080
+ECB_RATES_URL=https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml
+```
+
+Compose passes `ECB_RATES_URL` to the ASP.NET Core setting
+`CurrencyConverter:EcbRatesUrl`. Do not place secrets in `.env`; this API does
+not currently require credentials.
+
 ## Tests
 
 ```bash

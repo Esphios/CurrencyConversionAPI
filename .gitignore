@@ -67,6 +67,11 @@ $RECYCLE.BIN/
 .idea/
 .idea/*
 
+# Local container configuration (the example remains versioned)
+.env
+.env.*
+!.env.example
+
 # Rider artifact folders
 /out/
 /.vs
